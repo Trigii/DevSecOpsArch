@@ -1,0 +1,24 @@
+- name: Conectarse al AKS
+  hosts: virtual-machine
+  vars_files:
+    - ../env_variables
+  become: true
+
+  tasks: 
+    - name: Iniciar sesión en Azure
+      become_user: "{{ item }}"
+      command: az login {{az.login.type}} -u {{az.login.client_id}} -p {{az.login.password}} --tenant {{az.login.tenant_id}}
+      with_items: "{{az.users}}"
+      when: az.connect | bool
+
+    - name: Establecer la suscripción de Azure
+      become_user: "{{ item }}"
+      command: az account set {{az.account_set.type}} {{az.account_set.subscription_id}}
+      with_items: "{{az.users}}"
+      when: az.connect | bool
+
+    - name: Obtener las credenciales de AKS
+      become_user: "{{ item }}"
+      command: az aks {{az.aks.type}} --resource-group {{az.aks.resource_group_name}} --name {{az.aks.aks_name}} --file {{az.aks.file}}
+      with_items: "{{az.users}}"
+      when: az.connect | bool

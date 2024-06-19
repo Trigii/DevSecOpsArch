@@ -1,0 +1,230 @@
+# image: docker:latest
+
+# services:
+#   - name: docker:dind
+#     entrypoint: ["env", "-u", "DOCKER_HOST"]
+#     command: ["dockerd-entrypoint.sh"]
+
+#************** STAGES_ENABLEMENT **************#
+variables:
+  S_PREFLIGHT: "yes"
+  S_DESIGN: "yes"
+  S_BUILD: "yes"
+  S_TEST: "yes"
+  S_RELEASE: "yes"
+  S_DEPLOY: "yes"
+  S_OPERATE: "yes"
+  # JOBS ENABLEMENT #
+  #### Build
+  S_BUILD_S_COMPILE: "yes" 
+  S_BUILD_S_DOCKER_IMAGE: "yes"
+  #### Test (major to minor)
+  S_TEST_S_CODEQUALITY: "yes" #sonar
+  S_TEST_S_CV_S_SECRET_SCANNING: "yes" #trufflehog
+  S_TEST_S_CV_S_SAST: "yes"  #semgrep
+  S_TEST_S_CV_S_SCA: "yes"  #dependency track
+  S_TEST_S_CV_S_IST: "yes" #trivy
+  S_TEST_S_CONFIGURATION_VALIDATION: "yes"
+  S_TEST_S_CV_S_IAC: "yes" #checkov
+  S_TEST_S_CV_S_COMPLIANCE: "yes"
+  S_TEST_S_BEHAVIOR_VALIDATION: "yes"
+  S_TEST_S_BV_DAST: "yes" #zap
+  S_TEST_S_BV_FST: "yes"
+  #### Release
+  S_RELEASE_S_SECURITY_GATES: "yes"
+  S_RELEASE_S_SA_ARTIFACT: "yes"
+  S_RELEASE_S_SA_DOCKER_IMAGE: "yes"
+  S_RELEASE_S_DEFECT_MANAGEMENT: "yes"
+
+#--------------------------- DEFINITION OF STAGES IN PIPELINE ----------------------------------#
+stages:    
+  - Preflight
+  - Design
+  - Build
+  - Test
+  - Release
+  - Deploy
+  - Operate
+
+#--------------------------- DEFINITION OF JOBS IN TEST STAGE ----------------------------------#
+
+check-onboarding:
+  stage: Preflight
+  script:
+    - echo "check-onboarding-job..."
+  rules:
+    - if: $S_PREFLIGHT == "yes"
+
+irius:
+  stage: Design
+  script:
+    - echo "irius-job..."
+  rules:
+    - if: $S_DESIGN == "yes"
+
+maven:
+  stage: Build
+  script:
+    - echo "maven-job..."
+  rules:
+    - if: $S_BUILD == "yes" && $S_BUILD_S_COMPILE == "yes"
+
+create-image-docker:
+  stage: Build
+  script:
+    - echo "create-image-docker-job..."
+  rules:
+    - if: $S_BUILD == "yes" && $S_BUILD_S_DOCKER_IMAGE == "yes"
+
+sast-sonarqube-scan:
+  stage: Test
+  image:
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint: [""]
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Define la localización de la cache de tareas de analisis
+    GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  before_script:
+    - export NODE_TLS_REJECT_UNAUTHORIZED=0
+    - echo "sonarqube-check..."
+  script:
+    - sonar-scanner -X -Dsonar.qualitygate.wait=true -Dsonar.projectKey=$SONAR_PROJECT_KEY -Dsonar.exclusions=**/*.java -Dsonar.issuesReport.html.enable=true
+  after_script:
+    - ls -la .sonar
+  allow_failure: true
+  # only:
+  #   - merge_requests
+  #   - main # or the name of your main branch
+  #   - develop
+  rules:
+    - if: $S_TEST == "yes" && $S_TEST_S_CODEQUALITY == "yes"
+
+dast-zap-scan:
+  stage: Test
+  image:
+    name: bitnami/kubectl:latest
+    entrypoint: ['']
+  before_script:
+    - export KUBECONFIG=$KUBECONFIG
+  script:
+    - cat "$ZAP_SCAN"
+    - kubectl apply -f "$ZAP_SCAN" -n zap
+  after_script:
+    - ls -la
+    - kubectl get pods -n zap
+    - kubectl get scans -n zap
+    - kubectl get jobs -n zap
+  allow_failure: true
+  rules:
+    - if: $S_TEST == "yes" && $S_TEST_S_BV_DAST == "yes"
+
+iac-trivy-scan:
+  stage: Test
+  image: docker.io/aquasec/trivy:0.29.2
+  variables:
+    SECURITY_REPORTS_FOLDER: $CI_PROJECT_DIR
+    TRIVY_REPORT: "${SECURITY_REPORTS_FOLDER}/iac-trivy.json"
+    TRIVY_SCAN_TYPE: "conf"
+    TRIVY_TARGET: "."
+    TRIVY_ADDITIONAL_OPTIONS: "-f json"
+  script:
+    - echo "ist-trivy-job..."
+    - trivy ${TRIVY_SCAN_TYPE} ${TRIVY_ADDITIONAL_OPTIONS} -o ${TRIVY_REPORT} ${TRIVY_TARGET}
+  after_script:
+    - ls -la
+    - cat iac-trivy.json
+  allow_failure: true
+  artifacts:
+    paths:
+      - "${TRIVY_REPORT}"
+    when: always
+  rules:
+    - if: $S_TEST == "yes" && $S_TEST_S_CV_S_IST == "yes"
+
+container-image-trivy-scan:
+  stage: Test
+  image: docker.io/aquasec/trivy:0.29.2
+  variables:
+    SECURITY_REPORTS_FOLDER: $CI_PROJECT_DIR
+    TRIVY_REPORT: "${SECURITY_REPORTS_FOLDER}/cis-trivy.json"
+    TRIVY_SCAN_TYPE: "image"
+    TRIVY_DNS: 'trivy.trivy'# '142.10.0.35' 'trivy.142.10.0.156.nip.io'
+    TRIVY_SCHEMA: "http"
+    TRIVY_PORT: "8080"
+    TRIVY_TARGET: "bkimminich/juice-shop:v14.5.1"
+    TRIVY_ADDITIONAL_OPTIONS: "--security-checks vuln -f json --exit-code 0"
+    TRIVY_SERVER_TOKEN: "tfg-trivy-token"
+  script:
+    - echo "ist-trivy-job..."
+    - trivy ${TRIVY_SCAN_TYPE} ${TRIVY_ADDITIONAL_OPTIONS} -o ${TRIVY_REPORT} --server ${TRIVY_SCHEMA}://${TRIVY_DNS}:${TRIVY_PORT} --token ${TRIVY_SERVER_TOKEN} ${TRIVY_TARGET}
+  after_script:
+    - ls -la
+    - cat cis-trivy.json
+  allow_failure: true
+  artifacts:
+    paths:
+      - "${TRIVY_REPORT}"
+    when: always
+  rules:
+    - if: $S_TEST == "yes" && $S_TEST_S_CV_S_IST == "yes"
+
+sca-semgrep-scan:     
+  stage: Test 
+  image: returntocorp/semgrep
+  variables:
+    SECURITY_REPORTS_FOLDER: $CI_PROJECT_DIR
+    SEMGREP_REPORT: "${SECURITY_REPORTS_FOLDER}/semgrep.json"
+  script:
+    - echo "sast-semgrep-job..." 
+    - semgrep --config=auto --output $SEMGREP_REPORT --json --no-error $PWD
+  after_script:
+    - ls -la
+    - cat $SEMGREP_REPORT
+  allow_failure: true
+  artifacts:
+    paths:
+      - "${SEMGREP_REPORT}"
+    when: always
+  rules:
+    - if: $S_TEST == "yes" && $S_TEST_S_CV_S_SAST == "yes"
+
+secret-scanning-trufflehog-scan:      
+  stage: Test 
+  image: trufflesecurity/trufflehog:3.6.8
+  variables:
+    SCAN_REPOSITORY: "."
+    SECURITY_REPORTS_FOLDER: ${CI_PROJECT_DIR}
+    TRUFFLEHOG_REPORT: "${SECURITY_REPORTS_FOLDER}/trufflehog.json"
+    GITLAB_BRANCH: "main"
+    TRUFFLEHOG_ADDITIONAL_OPTIONS: "git file://${SCAN_REPOSITORY} --branch=${GITLAB_BRANCH} --json --no-verification"
+  script:
+    - echo "secret-scanning-trufflehog-job..."
+    - trufflehog $TRUFFLEHOG_ADDITIONAL_OPTIONS > $TRUFFLEHOG_REPORT
+  after_script:
+    - ls -la
+    - cat $TRUFFLEHOG_REPORT
+  allow_failure: true
+  artifacts:
+    paths:
+      - "${TRUFFLEHOG_REPORT}"
+    when: always
+  rules:
+    - if: $S_TEST == "yes" && $S_TEST_S_CV_S_SECRET_SCANNING == "yes"
+
+defect-management:
+  stage: Release
+  script:
+    - echo "defect-management-job..."
+  rules:
+    - if: $S_RELEASE == "yes" && $S_RELEASE_S_DEFECT_MANAGEMENT == "yes"
+
+operate:
+  stage: Operate
+  script:
+    - echo "operate-job..."
+  rules:
+    - if: $S_OPERATE == "yes"

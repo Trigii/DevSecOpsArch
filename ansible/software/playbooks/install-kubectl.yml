@@ -1,0 +1,29 @@
+- name: Instalación de kubectl en Ubuntu Server 18.04 LTS
+  hosts: virtual-machine
+  vars_files:
+    - ../env_variables
+  become: true
+
+  tasks: 
+    - name: Descargar la clave pública de Google Cloud
+      apt_key:
+        url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+        state: present
+      when: kubectl.install | bool
+
+    - name: Añadir el repositorio de Google Cloud
+      apt_repository:
+        repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
+        state: present
+      when: kubectl.install | bool
+
+    - name: Actualizar apt
+      apt:
+        update_cache: yes
+      when: kubectl.install | bool
+
+    - name: Instalar kubectl
+      apt:
+        name: kubectl
+        state: present
+      when: kubectl.install | bool

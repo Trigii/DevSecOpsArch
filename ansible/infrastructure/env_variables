@@ -1,0 +1,21 @@
+############################
+# INFRASTRUCTURE VARIABLES #
+############################
+terraform:
+  enabled: true
+
+  options:
+    # path to the terraform folder
+    path: ../../terraform/
+
+    # path to the .tfvars file 
+    tfvars_file: environment.tfvars
+
+    # file name of the terraform file plan
+    plan_file: tfplan
+
+automation:
+  enabled: true
+
+  options:
+    ansible_software_path: ../software/

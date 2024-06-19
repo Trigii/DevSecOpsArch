@@ -1,0 +1,56 @@
+######################
+# SOFTWARE VARIABLES #
+######################
+dependencies:
+  install: true
+
+helm:
+  install: true
+
+docker:
+  install: true
+
+kubectl:
+  install: true
+
+jq:
+  install: true
+
+yq:
+  install: true
+
+az:
+  install: true
+  connect: true
+
+  login:
+    type: --service-principal
+    client_id: SET_SERVICE_PRINCIPAL_CLIENT_ID
+    password: SET_SERVICE_PRINCIPAL_PASSWORD
+    tenant_id: SET_SERVICE_PRINCIPAL_TENANT_ID
+
+  account_set:
+    type: --subscription
+    subscription_id: SET_AZURE_SUBSCRIPTION_ID
+
+  aks:
+    type: get-credentials
+    resource_group_name: main-tfg-devsecops
+    aks_name: tfg-devsecops-pro
+    file: ~/.kube/config
+
+  users:
+    - root
+    - tfgadmin
+
+ingress:
+  install: true
+  uninstall: false
+
+  options:
+    chart_name: ingress-nginx
+    release_name: ingress-nginx
+    namespace: ingress-nginx
+    health_probe_path: /healthz
+    private_ip: 142.10.0.156
+    internal: true

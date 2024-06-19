@@ -1,0 +1,32 @@
+- name: Instalar OWASP-OPERATOR Y OWASP-ZAP
+  hosts: virtual-machine
+  vars_files:
+    - ../env_variables
+  become: true
+
+  tasks: 
+    - name: Añadir el repositorio de secureCodeBox
+      command: helm repo add {{zap.options.chart_name}} https://charts.securecodebox.io
+      when: zap.install | bool
+
+    - name: Actualizar el repositorio de secureCodeBox
+      command: helm repo update
+      when: zap.install | bool
+
+    - name: Instalar el Operador y los CRDs de OWASP
+      command: helm upgrade --namespace securecodebox-system --create-namespace --install securecodebox-operator {{zap.options.chart_name}}/operator --timeout {{zap.options.timeout}} --wait
+      when: zap.install | bool
+
+    - name: Instalar OWASP-ZAP
+      command: helm upgrade --install {{zap.options.release_name}} {{zap.options.chart_name}}/zap --namespace {{zap.options.namespace}} --create-namespace --timeout {{zap.options.timeout}} --wait
+      when: zap.install | bool
+
+      # Uninstall
+
+    - name: Desinstalar zap
+      command: helm uninstall {{zap.options.release_name}} --namespace {{zap.options.namespace}}
+      when: zap.uninstall | bool
+
+    - name: Desinstalar el Operador y los CRDs de OWASP
+      command: helm uninstall securecodebox-operator --namespace securecodebox-system
+      when: zap.uninstall | bool

@@ -1,0 +1,40 @@
+- name: Instalar GitLab
+  hosts: virtual-machine
+  vars_files:
+    - ../env_variables
+  become: true
+
+  tasks: 
+    # Despliegue de Gitlab
+    - name: Añadir el repositorio de Gitlab
+      command: helm repo add {{gitlab.options.chart_name}} https://charts.gitlab.io/
+      when: gitlab.install | bool
+
+    - name: Actualizar el repositorio de Gitlab
+      command: helm repo update
+      when: gitlab.install | bool
+
+    - name: Desplegar Gitlab
+      command: helm install {{gitlab.options.release_name}} {{gitlab.options.chart_name}}/gitlab -f {{gitlab.options.values_path}} --timeout {{gitlab.options.timeout}} --namespace {{gitlab.options.namespace}} --create-namespace --wait
+      when: gitlab.install | bool
+      args:
+        chdir: "{{helm.path}}"
+
+    # Desinstalar Gitlab
+
+    - name: Desinstalar Gitlab
+      command: helm uninstall {{gitlab.options.release_name}} --namespace {{gitlab.options.namespace}}
+      when: gitlab.uninstall | bool
+
+    - name: Obtener el nombre del pod que contiene el toolbox de Gitlab
+      command: kubectl --namespace {{gitlab.options.namespace}} get pods -lapp=toolbox --no-headers -o custom-columns=":metadata.name"
+      register: toolbox_pod
+      when: gitlab.token.generate | bool
+      
+    - name: Crear el token de acceso a Gitlab con los permisos necesarios
+      shell: kubectl exec -n {{gitlab.options.namespace}} -it {{toolbox_pod.stdout}} -- /srv/gitlab/bin/rails runner "token = User.find_by_username('{{gitlab.token.user}}').personal_access_tokens.create(scopes{{":"}} {{gitlab.token.scope}}, name{{":"}} '{{gitlab.token.name}}'); token.set_token('{{gitlab.token.string}}'); token.save!"
+      when: gitlab.token.generate | bool
+
+    - name: Eliminar el token de acceso a Gitlab
+      shell: kubectl exec -n {{gitlab.options.namespace}} -it {{toolbox_pod.stdout}} -- /srv/gitlab/bin/rails runner "PersonalAccessToken.find_by_token('{{gitlab.token.string}}').revoke!"
+      when: gitlab.token.delete | bool

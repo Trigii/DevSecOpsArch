@@ -1,0 +1,22 @@
+- name: Creación del load balancer interno en el AKS
+  hosts: virtual-machine
+  vars_files:
+    - ../env_variables
+  become: true
+
+  tasks:
+    - name: Descargar el chart de ingress-nginx
+      command: helm repo add {{ingress.options.chart_name}} https://kubernetes.github.io/ingress-nginx
+      when: ingress.install | bool 
+
+    - name: Actualizar el repositorio de ingress-nginx
+      command: helm repo update
+      when: ingress.install | bool 
+
+    - name: Instalar el chart de ingress-nginx
+      command: helm install {{ingress.options.release_name}} {{ingress.options.chart_name}}/ingress-nginx --create-namespace --namespace {{ingress.options.namespace}} --set controller.service.annotations."service\.beta\.kubernetes\.io/azure-load-balancer-health-probe-request-path"={{ingress.options.health_probe_path}} --set controller.service.loadBalancerIP={{ingress.options.private_ip}} --set controller.service.annotations."service\.beta\.kubernetes\.io/azure-load-balancer-internal"={{ingress.options.internal}}
+      when: ingress.install | bool  
+
+    - name: Desinstalar el chart de ingress-nginx
+      command: helm uninstall {{ingress.options.release_name}} --namespace {{ingress.options.namespace}}
+      when: ingress.uninstall | bool

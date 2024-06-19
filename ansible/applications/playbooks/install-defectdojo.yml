@@ -1,0 +1,45 @@
+- name: Instalar Defectdojo
+  hosts: virtual-machine
+  vars_files:
+    - ../env_variables
+  become: true
+
+  tasks: 
+    - name: Añadir el repositorio de Defectdojo
+      command: helm repo add {{defectdojo.options.chart_name}} 'https://raw.githubusercontent.com/DefectDojo/django-DefectDojo/helm-charts'
+      when: defectdojo.install | bool
+
+    - name: Actualizar el repositorio de Defectdojo
+      command: helm repo update
+      when: defectdojo.install | bool
+    
+    - name: Desplegar defectdojo
+      command: helm install {{defectdojo.options.release_name}} {{defectdojo.options.chart_name}}/defectdojo --version 1.6.57 --set createSecret={{defectdojo.options.secrets.create}} --set createRabbitMqSecret={{defectdojo.options.secrets.rabbitmq}} --set createRedisSecret={{defectdojo.options.secrets.redis}} --set createMysqlSecret={{defectdojo.options.secrets.mysql}} --set createPostgresqlSecret={{defectdojo.options.secrets.postgresql}} --set host={{defectdojo.options.host}} --set django.ingress.enabled=true --set django.ingress.ingressClassName="nginx" --set django.ingress.annotations."nginx\.ingress\.kubernetes\.io/proxy-body-size"="100m" --namespace {{defectdojo.options.namespace}} --create-namespace --timeout {{defectdojo.options.timeout}} --wait
+      when: defectdojo.install | bool
+      args:
+        chdir: "{{helm.path}}"
+
+    - name: obtener la contraseña incial de defectdojo
+      shell: kubectl get secret {{defectdojo.options.release_name}} --namespace={{defectdojo.options.namespace}} --output jsonpath='{.data.DD_ADMIN_PASSWORD}' | base64 --decode ; echo
+      register: initial_defectdojo_password
+
+    - name: insertar la contraseña de defectdojo en el fichero de VARIABLES
+      command: yq -y -i '.defectdojo.password = "{{ initial_defectdojo_password.stdout }}"' env_variables
+      args:
+        chdir: /home/tfgadmin/tfg/ansible/applications
+
+    - name: Establecer el namespace de defectdojo
+      command: kubectl config set-context --current --namespace={{defectdojo.options.namespace}}
+      when: defectdojo.uninstall | bool or defectdojo.clean | bool
+
+    - name: Desinstalar defectdojo
+      command: helm uninstall {{defectdojo.options.release_name}}
+      when: defectdojo.uninstall | bool
+
+    - name: Clean up de defectdojo
+      shell: helm uninstall {{defectdojo.options.release_name}} && kubectl delete secrets {{defectdojo.options.release_name}} {{defectdojo.options.release_name}}-redis-specific {{defectdojo.options.release_name}}-rabbitmq-specific {{defectdojo.options.release_name}}-postgresql-specific {{defectdojo.options.release_name}}-mysql-specific && kubectl delete serviceAccount {{defectdojo.options.release_name}} && kubectl delete pvc data-{{defectdojo.options.release_name}}-rabbitmq-0 data-{{defectdojo.options.release_name}}-postgresql-0 data-{{defectdojo.options.release_name}}-mysql-0
+      when: defectdojo.clean | bool
+
+    - name: Establecer el namespace por defecto
+      command: kubectl config set-context --current --namespace=default
+      when: defectdojo.uninstall | bool or defectdojo.clean | bool

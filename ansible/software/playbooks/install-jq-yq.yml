@@ -1,0 +1,19 @@
+- name: Instalación de jq e yq en Ubuntu Server 18.04 LTS
+  hosts: virtual-machine
+  vars_files:
+    - ../env_variables
+  become: true
+
+  tasks:
+    - name: Instalar jq
+      apt:
+        name: jq
+        state: present
+      when: jq.install | bool
+      
+    - name: Instalar yq
+      pip:
+        name: yq
+        state: present
+        version: 3.0.1
+      when: yq.install | bool

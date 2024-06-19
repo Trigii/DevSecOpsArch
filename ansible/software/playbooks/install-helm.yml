@@ -1,0 +1,18 @@
+- name: Instalación de Helm en Ubuntu Server 18.04 LTS
+  hosts: virtual-machine
+  vars_files:
+    - ../env_variables
+  become: true
+
+  tasks:
+    - name: Obtener el instalador de Helm
+      command: curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+      when: helm.install | bool
+
+    - name: Otorgar los permisos necesarios
+      command: chmod 700 get_helm.sh
+      when: helm.install | bool
+
+    - name: Ejecutar el instalador de Helm
+      command: ./get_helm.sh
+      when: helm.install | bool

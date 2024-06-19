@@ -1,0 +1,51 @@
+- name: Instalar Sonarqube
+  hosts: virtual-machine
+  vars_files:
+    - ../env_variables
+  become: true
+
+  tasks:
+    - name: Añadir el repositorio de Sonarqube
+      command: helm repo add {{sonarqube.options.chart_name}} https://SonarSource.github.io/helm-chart-sonarqube
+      when: sonarqube.install | bool
+
+    - name: Actualizar el repositorio de Sonarqube
+      command: helm repo update
+      when: sonarqube.install | bool
+
+    - name: Desplegar Sonarqube
+      command: helm upgrade --install {{sonarqube.options.release_name}} {{sonarqube.options.chart_name}}/sonarqube -f {{sonarqube.options.values_path}} --namespace {{sonarqube.options.namespace}} --create-namespace --wait --timeout {{sonarqube.options.timeout}}
+      when: sonarqube.install | bool
+      args:
+          chdir: "{{helm.path}}"
+
+    - name: Copiar el fichero sql que contendrá la query para cambiar la contraseña en el pod de postgresql
+      shell: kubectl cp update_sonarqube_password.sql {{sonarqube.options.release_name}}-postgresql-0:/tmp/ -n {{sonarqube.options.namespace}}
+      when: sonarqube.install | bool
+      args:
+          chdir: "{{ci.path}}"
+
+    - name: Cambiar la contraseña de Sonarqube ejecutando el fichero sql
+      shell: kubectl exec -it {{sonarqube.options.release_name}}-postgresql-0 -n {{sonarqube.options.namespace}} -- bash -c "PGPASSWORD=sonarPass psql --username=sonarUser sonarDB -f /tmp/update_sonarqube_password.sql"
+      when: sonarqube.install | bool
+
+    - name: Clonar el repositorio de sonar-report
+      shell: git clone https://github.com/soprasteria/sonar-report.git
+      when: sonarqube.install | bool
+      args:
+          chdir: /home/tfgadmin
+
+    - name: Instalar sonar-report utilizando Node 17.9.1
+      shell: |
+        /bin/bash -c "source ~/.nvm/nvm.sh && nvm use 17.9.1 && npm install -g sonar-report"
+      when: sonarqube.install | bool
+      become_user: "{{ item }}"
+      with_items:
+        - root
+        - tfgadmin
+      args:
+          chdir: /home/tfgadmin/sonar-report
+
+    - name: Desinstalar Sonarqube
+      command: helm uninstall {{sonarqube.options.release_name}} --namespace {{sonarqube.options.namespace}}
+      when: sonarqube.uninstall | bool

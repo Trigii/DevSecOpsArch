@@ -1,0 +1,13 @@
+- name: Configuración de las aplicaciones desplegadas
+  hosts: virtual-machine
+  vars_files:
+    - ../env_variables
+  become: true
+
+  tasks: 
+    - name: Ejecutar el script de python
+      shell: python3 ci/python/main.py
+      become_user: tfgadmin
+      when: ci.run_script | bool
+      args:
+          chdir: /home/tfgadmin/tfg

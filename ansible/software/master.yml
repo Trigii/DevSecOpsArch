@@ -1,0 +1,9 @@
+---
+- import_playbook: playbooks/install-dependencies.yml
+- import_playbook: playbooks/install-helm.yml
+- import_playbook: playbooks/install-docker.yml
+- import_playbook: playbooks/install-kubectl.yml
+- import_playbook: playbooks/install-jq-yq.yml
+- import_playbook: playbooks/install-az.yml
+- import_playbook: playbooks/connect-aks.yml
+- import_playbook: playbooks/ingress-nginx.yml

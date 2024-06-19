@@ -1,0 +1,29 @@
+- name: Instalación de Azure CLI en Ubuntu Server 18.04 LTS
+  hosts: virtual-machine
+  vars_files:
+    - ../env_variables
+  become: true
+
+  tasks:
+    - name: Añadir la clave Microsoft GPG
+      apt_key:
+        url: https://packages.microsoft.com/keys/microsoft.asc
+        state: present
+      when: az.install | bool
+
+    - name: Add el repositorio de Microsoft
+      apt_repository:
+        repo: deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ {{ ansible_distribution_release }} main
+        state: present
+      when: az.install | bool
+
+    - name: Actualizar apt 3
+      apt:
+        update_cache: yes
+      when: az.install | bool
+
+    - name: Instalar Azure CLI
+      apt:
+        name: azure-cli
+        state: present
+      when: az.install | bool

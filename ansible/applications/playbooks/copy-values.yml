@@ -1,0 +1,83 @@
+- name: Copia los values.yml para desplegar las aplicaciones con mi configuración
+  hosts: virtual-machine
+  vars_files:
+    - ../env_variables
+  become: true
+
+  tasks: 
+    - name: Aseguramos que existan los directorios destino
+      file: 
+        path: "{{helm.path}}/{{item}}"
+        state: directory
+        owner: "{{helm.config_values.user}}"
+      with_items:
+        - defectdojo
+        - trivy
+        - sonarqube
+        - gitlab
+        - zap
+        - vulnapp
+      when: helm.config_values.cpy | bool
+
+    - name: Aseguramos que existan los directorios destino
+      file: 
+        path: "{{ci.path}}"
+        state: directory
+        owner: "{{helm.config_values.user}}"
+      when: ci.cpy | bool
+
+    - name: Aseguramos que existan los directorios destino
+      file: 
+        path: "/home/tfgadmin/tfg/ansible/applications"
+        state: directory
+        owner: "{{helm.config_values.user}}"
+      when: ci.cpy | bool
+
+    - name: Copiar el values.yaml de defectdojo
+      copy:
+        src: ../../../helm/defectdojo/values.yaml
+        dest: "{{helm.path}}/defectdojo/values.yaml"
+        owner: "{{helm.config_values.user}}"
+      when: helm.config_values.cpy | bool
+
+    - name: Copiar el values.yml de trivy
+      copy:
+        src: ../../../helm/trivy/values.yaml
+        dest: "{{helm.path}}/trivy/values.yaml"
+        owner: "{{helm.config_values.user}}"
+      when: helm.config_values.cpy | bool
+
+    - name: Copiar el values.yml de sonarqube
+      copy:
+        src: ../../../helm/sonarqube/values.yaml
+        dest: "{{helm.path}}/sonarqube/values.yaml"
+        owner: "{{helm.config_values.user}}"
+      when: helm.config_values.cpy | bool
+    
+    - name: Copiar el values.yml de gitlab
+      copy:
+        src: ../../../helm/gitlab-master/gitlab-master/values.yaml
+        dest: "{{helm.path}}/gitlab/values.yaml"
+        owner: "{{helm.config_values.user}}"
+      when: helm.config_values.cpy | bool
+
+    - name: Copiar el owasp zap scan
+      copy:
+        src: ../../../helm/owasp-zap/zap-scan.yaml
+        dest: "{{helm.path}}/zap/zap-scan.yaml"
+        owner: "{{helm.config_values.user}}"
+      when: helm.config_values.cpy | bool
+
+    - name: Copiar el fichero de variables
+      copy:
+        src: ../../../ansible/applications/env_variables
+        dest: "/home/tfgadmin/tfg/ansible/applications/env_variables"
+        owner: "{{helm.config_values.user}}"
+      when: ci.cpy | bool
+
+    - name: Copiar la carpeta ci
+      copy:
+        src: ../../../ci
+        dest: "{{ci.path}}/.."
+        owner: "{{helm.config_values.user}}"
+      when: ci.cpy | bool

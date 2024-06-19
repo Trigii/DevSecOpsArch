@@ -1,0 +1,144 @@
+#########################
+# INSTALATION VARIABLES #
+#########################
+helm:
+  path: /home/tfgadmin/tfg/helm
+
+  config_values:
+    cpy: true
+    user: tfgadmin
+
+ci:
+  cpy: true
+  run_script: true
+  path: /home/tfgadmin/tfg/ci
+
+vuln_app:
+  install: false
+  uninstall: false
+
+  options:
+    release_name: juice-shop
+    namespace: vulnapp
+    values_path: vulnapp/values.yaml
+    timeout: 600s
+
+  repo_url: https://github.com/juice-shop/juice-shop.git # https://github.com/psiinon/bodgeit.git / https://github.com/juice-shop/juice-shop.git
+  repo_path: vulnerable-app
+
+defectdojo:
+  install: true
+  uninstall: false
+  clean: false
+
+  url: https://defectdojo.142.10.0.156.nip.io
+  username: admin
+  password: PJ0GnLiKnszK29FHXJidkg 
+
+  product_type:
+    name: Aplicacion web
+    description: Tipo de producto para aplicaciones web
+
+  product:
+    name: TFG Product
+    description: Producto creado para el TFG
+
+  engagement:
+    name: TFG Engagement
+    description: Engagement creado para el TFG
+    target_start: 2024-04-20
+    target_end: 2024-04-27
+    type: CI/CD
+
+  options:
+    chart_name: defectdojo
+    release_name: defectdojo 
+    values_path: defectdojo/values.yaml
+    host: defectdojo.142.10.0.156.nip.io
+    namespace: defectdojo
+    timeout: 600s
+
+    secrets:
+      create: true
+      rabbitmq: true
+      redis: true
+      mysql: true
+      postgresql: true
+
+gitlab:
+  install: true
+  uninstall: false
+  
+  api_url: https://gitlab.142.10.0.156.nip.io/api/v4
+  url: https://gitlab.142.10.0.156.nip.io/
+  repo_path: ci/tfg-project
+  reports_path: ci/artifacts
+
+  options:
+    chart_name: gitlab
+    release_name: gitlab
+    values_path: gitlab/values.yaml
+    namespace: gitlab
+    timeout: 600s
+
+  token:
+    generate: true
+    delete: false
+
+    name: tfg-access-token
+    user: root
+    scope: "['api', 'read_user', 'read_api', 'read_repository', 'write_repository', 'read_registry', 'write_registry', 'sudo', 'admin_mode']"
+    string: my-test-tfg-token-01 # at least 20 characters long
+
+  project:
+    name: tfg-project
+    description: Proyecto de Gitlab para el TFG
+    initialize_with_readme: true
+    visibility: private
+
+sonarqube:
+  install: true
+  uninstall: false
+
+  url: http://sonarqube.142.10.0.156.nip.io
+  username: admin 
+  password: admin
+
+  options:
+    chart_name: sonarqube
+    release_name: sonarqube
+    values_path: sonarqube/values.yaml
+    namespace: sonarqube
+    timeout: 600s
+
+  project:
+    token: tfg-project # sonar project key
+    name: tfg-sonar-project
+    visibility: private
+
+  gitlab:
+    key: tfg-sonar-gitlab-key
+
+  token:
+    name: TFGpersonalandtestingtoken02
+
+zap:
+  install: true
+  uninstall: false
+
+  options:
+    chart_name: secureCodeBox
+    release_name: zap
+    namespace: zap
+    timeout: 600s
+
+trivy:
+  install: true
+  uninstall: false 
+
+  options:
+    chart_name: aquasecurity
+    release_name: trivy
+    values_path: trivy/values.yaml
+    namespace: trivy
+    timeout: 600s

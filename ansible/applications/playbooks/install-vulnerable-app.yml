@@ -1,0 +1,24 @@
+- name: Instalar Vulnerable Application
+  hosts: virtual-machine
+  vars_files:
+    - ../env_variables
+  become: true
+
+  tasks:
+    - name: Actualizar los repositorios
+      command: helm repo update
+      when: vuln_app.install | bool
+    
+    - name: Instalar Vulnerable Application
+      command: helm upgrade --install {{vuln_app.options.release_name}} {{zap.options.chart_name}}/juice-shop -n {{vuln_app.options.namespace}} --create-namespace --wait --timeout {{vuln_app.options.timeout}}
+      args:
+        chdir: "{{helm.path}}"
+      when: vuln_app.install | bool
+
+    - name: Hacer PortForward del servicio
+      shell: kubectl --namespace {{vuln_app.options.namespace}} port-forward service/{{vuln_app.options.release_name}} 3000:3000 &
+      when: vuln_app.install | bool
+
+    - name: Desinstalar la aplicacion vulnerable
+      command: helm uninstall {{vuln_app.options.release_name}} -n {{vuln_app.options.namespace}}
+      when: vuln_app.uninstall | bool

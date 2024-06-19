@@ -1,0 +1,24 @@
+- name: Instalar Trivy
+  hosts: virtual-machine
+  vars_files:
+    - ../env_variables
+  become: true
+
+  tasks:
+    - name: Añadir el repositorio de Trivy
+      command: helm repo add {{trivy.options.chart_name}} https://aquasecurity.github.io/helm-charts/
+      when: trivy.install | bool
+
+    - name: Actualizar el repositorio de Trivy
+      command: helm repo update
+      when: trivy.install | bool
+
+    - name: Desplegar Trivy
+      command: helm install {{trivy.options.release_name}} {{trivy.options.chart_name}}/trivy -f {{trivy.options.values_path}} --namespace {{trivy.options.namespace}} --create-namespace --timeout {{trivy.options.timeout}} --wait
+      when: trivy.install | bool
+      args:
+        chdir: "{{helm.path}}"
+
+    - name: Desinstalar Trivy
+      command: helm uninstall {{trivy.options.release_name}} --namespace {{trivy.options.namespace}}
+      when: trivy.uninstall | bool

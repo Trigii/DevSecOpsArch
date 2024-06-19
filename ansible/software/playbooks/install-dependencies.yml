@@ -1,0 +1,61 @@
+- name: Instalación de las dependencias en Ubuntu Server 18.04 LTS
+  hosts: virtual-machine
+  vars_files:
+    - ../env_variables
+  become: true
+
+  tasks:    
+    - name: Actualizar apt
+      apt:
+        update_cache: yes
+      when: dependencies.install | bool
+
+    - name: Actualizar apt y añadir dependencias
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg-agent
+          - software-properties-common
+          - npm
+        state: present
+      when: dependencies.install | bool
+
+    - name: Instalar Python 3
+      apt:
+        name: python3
+        state: present
+      when: dependencies.install | bool
+
+    - name: Instalar pip
+      apt:
+        name: python3-pip
+        state: present
+      when: dependencies.install | bool
+
+    - name: Instalar las librerías de python necesarias
+      pip:
+        name:
+          - requests
+          - python-gitlab
+          - python-sonarqube-api
+          - gitpython
+        state: present
+      when: dependencies.install | bool
+
+    - name: Instalar nvm
+      shell: curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.31.3/install.sh | sh creates=~/.nvm/nvm.sh
+      become_user: "{{ item }}"
+      with_items:
+        - root
+        - tfgadmin
+      when: dependencies.install | bool
+
+    - name: Instalar Node
+      command: /bin/bash -c "source ~/.nvm/nvm.sh && nvm install 17.9.1 && nvm alias default 17" creates=~/.nvm/alias
+      become_user: "{{ item }}"
+      with_items:
+        - root
+        - tfgadmin
+      when: dependencies.install | bool
