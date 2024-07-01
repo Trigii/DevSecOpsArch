@@ -2,6 +2,8 @@
 
 This repository contains the TFG made by Tristán Vaquero Povedano. It consists of a DevSecOps architecture for the automation of security tests in container-based applications.
 
+![image](https://github.com/Trigii/DevSecOpsArch/assets/95245480/a2e29a07-b0bd-405f-be76-b955a5578835)
+
 ## Requirements
 
 - Have Docker installed
